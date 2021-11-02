@@ -49,7 +49,7 @@ linmod <- function(formula, dat){
   ## flev: list of vector levels for each factor variable in dat
   
   factors <- which(sapply(dat, is.factor) == TRUE) # find factor variables in dat
-  factors <- factors[names(factors) %in% all.vars(formula)[-1]] # only keep factors in formula
+  factors <- factors[names(factors) %in% all.vars(formula)] # only keep factors in formula
   
   if(length(factors) == 1){ # no need to use lapply if only one factor
     flev <- list(levels(dat[,factors]))
@@ -57,7 +57,7 @@ linmod <- function(formula, dat){
   }else if(length(factors) > 1){ # if > 1 factor, extract levels for every factor
     flev <- lapply(dat[,factors], levels)
     names(flev) <- names(factors)
-  }else{
+  }else{ # else return empty list
     flev=list()
   }
   
@@ -183,7 +183,7 @@ sum(predict.linmod(linmod_test_car, newdata_cars) == predict.lm(lm_test_car, new
 
 
 #### Toothgrowth
-formula_toothgrowth <- formula(len ~ supp * dose)
+formula_toothgrowth <- formula(dose ~ supp * len)
 
 lm_test_tooth <- lm(formula_toothgrowth, ToothGrowth)
 linmod_test_tooth <- linmod(formula_toothgrowth, ToothGrowth)
@@ -193,7 +193,7 @@ linmod_test_tooth
 
 plot.linmod(linmod_test_tooth)
 
-newdata_tooth <- ToothGrowth[sample(60, 15), c("supp","dose")]
+newdata_tooth <- ToothGrowth[sample(60, 15), c("supp","len")]
 newdata_tooth$supp <- as.character(newdata_tooth$supp)
 
 sum(predict.linmod(linmod_test_tooth, newdata_tooth)==predict.lm(lm_test_tooth, newdata_tooth))
