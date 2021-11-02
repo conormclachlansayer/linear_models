@@ -2,7 +2,8 @@
 library(ggplot2)
 library(debug)
 
-#mtrace(linmod)
+mtrace(linmod)
+mtrace.off()
 
 ##TODO Write unit tests for code (for example, converting inputs to correct types)
 
@@ -27,7 +28,7 @@ linmod <- function(formula, dat){
   beta <- backsolve(qr.R(qrx), Qty) # solve RB = Q(t)y for B
   names(beta) <- colnames(x)
   
-  ## Estimating fitted valued mu
+  ## Estimating fitted values mu
   mu <- qr.fitted(qrx, y)
   
   ## Estimating variance and sigma (sd) of the response & residuals
@@ -38,17 +39,27 @@ linmod <- function(formula, dat){
   ## Estimating covariance matrix of least squares estimators V
   
   rn <- nrow(qr.R(qrx))
-  I <- `diag<-`(matrix(0,rn,rn),1)
-  inverseRT <- forwardsolve(t(qr.R(qrx)),I) # First find R(-T)
+  I <- `diag<-`(matrix(0,rn,rn),1) # Creating identity matrix, same size as R matrix
+  inverseRT <- forwardsolve(t(qr.R(qrx)),I) # Find inverse of transpose of R matrix
   
   V <- backsolve(qr.R(qrx), inverseRT*var_y) # solve R*Var(Bhat) = R(-T) Sigma^2
-  colnames(V) <- names(beta)
+  colnames(V) <- names(beta) # Add names corresponding to beta coefficients
   rownames(V) <- names(beta)
-
-  ## flev, containing a list of vector levels for each factor variable in dat
-  flev <- 0
-  ### TODO Make this work, so factors work with predict function 
   
+  ## flev: list of vector levels for each factor variable in dat
+  
+  factors <- which(sapply(dat, is.factor) == TRUE) # find factor variables in dat
+  factors <- factors[names(factors) %in% all.vars(formula)[-1]] # only keep factors in formula
+  
+  if(length(factors) == 1){ # no need to use lapply if only one factor
+    flev <- list(levels(dat[,factors]))
+    names(flev) <- names(factors)
+  }else if(length(factors) > 1){ # if > 1 factor, extract levels for every factor
+    flev <- lapply(dat[,factors], levels)
+    names(flev) <- names(factors)
+  }else{
+    flev=list()
+  }
   
   # Returning a list containing specified elements (of class "linmod")
   
@@ -78,11 +89,15 @@ plot.linmod <- function(x,...){
 }
 
 predict.linmod <- function(x, newdata){
-
+  
+  if(!x$yname %in% colnames(newdata)){
   newdata <- cbind(rep(0,nrow(newdata)), newdata) # adding dummy response data to newdata
   colnames(newdata) <- c(x$yname, colnames(newdata[-1]))
+  }
   
-  ## TODO: Make work with factors
+  for (i in names(x$flev)){ #for every factor in newdata, ensure alignment with levels in original data  
+    newdata[,i] <- factor(newdata[,i], levels = x$flev[[i]]) 
+  }
   newdata <- model.matrix(x$formula, newdata) # Converting new data to model.matrix
   
   beta <- matrix(x$beta) # converting estimated betas to model.matrix
@@ -94,41 +109,93 @@ predict.linmod <- function(x, newdata){
   prediction
 }
 
-
 ## Testing Functions 
-
-summary(lm(cty ~ cyl*hwy, mpg))
-linmod(cty ~ cyl*hwy, mpg)
-
+#####
 
 mpg1 <- data.frame(mpg) ## convert to regular DF
 head(mpg1)
 summary(mpg1)
 
 mpg1$trans <- factor(gsub("\\(.*\\)","",mpg1$trans)) # strip out extra info on trans
+mpg1$trans <- as.factor(mpg1$trans)
+mpg1$class <- as.factor(mpg1$class)
 
-formula <- formula(cty ~ trans * displ)
+## Normal test data
 
-summary(lm(cty ~ trans * displ, mpg1))
-test <- linmod(cty ~ trans * displ, mpg1)
+formula_mpg <- formula(cty ~ cyl + displ + year)
 
-plot.linmod(test)
+lm_test <- lm(formula_mpg, mpg1)
+linmod_test <- linmod(formula_mpg, mpg1)
+
+summary(lm_test)
+linmod_test
+
+plot.linmod(linmod_test)
+
+newdata1 <- mpg1[sample(234,100),c("cyl", "displ", "year")]
+
+sum(predict.linmod(linmod_test, newdata1) == predict.lm(lm_test, newdata1))
+
+## Testing factors
+formula_mpg2 <- formula(cty ~ cyl + trans + class)
+
+lm_test2 <- lm(formula_mpg2, mpg1)
+linmod_test2 <- linmod(formula_mpg2, mpg1)
+summary(lm_test2)
+linmod_test2
+
+newdata2 <- mpg1[sample(234, 100),c("cyl","trans","class")]
+newdata2$trans <- factor(newdata2$trans, levels=c("auto", "semi-auto", "manual"))
+newdata2$class <- as.character(newdata2$class)
+
+sum(predict.linmod(linmod_test2, newdata2)==predict.lm(lm_test2, newdata2))
 
 
+#### IRIS data
 
-newdata1 <- as.data.frame(cbind(matrix(rep(c(2,4,6), 20), 60, 1), matrix(floor(runif(n=60, 26, 40)))))
-colnames(newdata1) <- c("cyl","hwy")
+formula_iris <- formula(Sepal.Length ~ Species * Sepal.Width + Petal.Length)
+
+lm_test_iris <- lm(formula_iris, iris)
+linmod_test_iris <- linmod(formula_iris, iris)
+
+summary(lm_test_iris)
+linmod_test_iris
+
+newdata_iris <- iris[sample(150, 30),c("Species","Sepal.Width","Petal.Length")]
+newdata_iris[,"Species"] <- factor(newdata_iris[,"Species"], levels=c("setosa", "versicolor", "virginica","fioih"))
+
+sum(predict.linmod(linmod_test_iris, newdata_iris) == predict.lm(lm_test_iris, newdata_iris))
+
+#### mtcars
+
+formula_mtcars <- formula(mpg ~ disp + gear + wt)
+
+lm_test_car <- lm(formula_mtcars, mtcars)
+linmod_test_car <- linmod(formula_mtcars, mtcars)
+summary(lm_test_car)
+linmod_test_car
+
+plot.linmod(linmod_test_car)
+
+newdata_cars <- mtcars[sample(32,12),c("disp","gear","wt")]
+
+sum(predict.linmod(linmod_test_car, newdata_cars) == predict.lm(lm_test_car, newdata_cars))
 
 
-## Problem: factors which aren't of type 'factor' will break the predict function
-newdata2 <- as.data.frame(cbind(matrix(rep(c("auto", "manual"), 30), 60, 1), matrix(round(runif(n=60, 1.6, 7),1))))
-colnames(newdata2) <- c("trans","displ")
-newdata2$trans <- as.factor(newdata2$trans)
-newdata2$displ <- as.numeric(newdata2$trans)
+#### Toothgrowth
+formula_toothgrowth <- formula(len ~ supp * dose)
+
+lm_test_tooth <- lm(formula_toothgrowth, ToothGrowth)
+linmod_test_tooth <- linmod(formula_toothgrowth, ToothGrowth)
+summary(lm_test_tooth)
+linmod_test_tooth
 
 
+plot.linmod(linmod_test_tooth)
 
-predict.linmod(test, newdata2)
+newdata_tooth <- ToothGrowth[sample(60, 15), c("supp","dose")]
+newdata_tooth$supp <- as.character(newdata_tooth$supp)
 
+sum(predict.linmod(linmod_test_tooth, newdata_tooth)==predict.lm(lm_test_tooth, newdata_tooth))
 
-
+#####
