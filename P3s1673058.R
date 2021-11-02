@@ -2,7 +2,7 @@
 library(ggplot2)
 library(debug)
 
-mtrace(linmod)
+mtrace(predict.linmod)
 mtrace.off()
 
 ##TODO Write unit tests for code (for example, converting inputs to correct types)
@@ -90,7 +90,7 @@ plot.linmod <- function(x,...){
 
 predict.linmod <- function(x, newdata){
   
-  if(!x$yname %in% colnames(newdata)){
+  if(!x$yname %in% colnames(newdata)){ # if orig response variable not in newdata, add dummy data 
   newdata <- cbind(rep(0,nrow(newdata)), newdata) # adding dummy response data to newdata
   colnames(newdata) <- c(x$yname, colnames(newdata[-1]))
   }
@@ -100,9 +100,9 @@ predict.linmod <- function(x, newdata){
   }
   newdata <- model.matrix(x$formula, newdata) # Converting new data to model.matrix
   
-  beta <- matrix(x$beta) # converting estimated betas to model.matrix
+  beta <- matrix(x$beta) # converting estimated betas to matrix
   
-  prediction <- newdata %*% beta
+  prediction <- newdata %*% beta # as betas only px1, no need for QR of newdata 
   
   colnames(prediction) <- x$yname
   
