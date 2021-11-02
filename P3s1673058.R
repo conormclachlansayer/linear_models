@@ -1,11 +1,4 @@
 ## Conor McLachlan Sayer S1673058
-library(ggplot2)
-library(debug)
-
-mtrace(predict.linmod)
-mtrace.off()
-
-##TODO Write unit tests for code (for example, converting inputs to correct types)
 
 ## Writing Functions
 linmod <- function(formula, dat){
@@ -109,8 +102,11 @@ predict.linmod <- function(x, newdata){
   prediction
 }
 
+testing <- function(){
 ## Testing Functions 
+# MPG
 #####
+
 
 mpg1 <- data.frame(mpg) ## convert to regular DF
 head(mpg1)
@@ -119,6 +115,7 @@ summary(mpg1)
 mpg1$trans <- factor(gsub("\\(.*\\)","",mpg1$trans)) # strip out extra info on trans
 mpg1$trans <- as.factor(mpg1$trans)
 mpg1$class <- as.factor(mpg1$class)
+mpg1$manufacturer <- as.factor(mpg1$manufacturer)
 
 ## Normal test data
 
@@ -137,23 +134,28 @@ newdata1 <- mpg1[sample(234,100),c("cyl", "displ", "year")]
 sum(predict.linmod(linmod_test, newdata1) == predict.lm(lm_test, newdata1))
 
 ## Testing factors
-formula_mpg2 <- formula(cty ~ cyl + trans + class)
+formula_mpg2 <- formula(hwy ~ manufacturer + trans + class + cyl)
 
 lm_test2 <- lm(formula_mpg2, mpg1)
 linmod_test2 <- linmod(formula_mpg2, mpg1)
 summary(lm_test2)
 linmod_test2
 
-newdata2 <- mpg1[sample(234, 100),c("cyl","trans","class")]
+newdata2 <- mpg1[sample(234, 10),c("manufacturer","cyl","trans","class")]
+
 newdata2$trans <- factor(newdata2$trans, levels=c("auto", "semi-auto", "manual"))
 newdata2$class <- as.character(newdata2$class)
+newdata2$manufacturer <- as.character(newdata2$manufacturer)
 
-sum(predict.linmod(linmod_test2, newdata2)==predict.lm(lm_test2, newdata2))
+predict.linmod(linmod_test2, newdata2)
+predict.lm(lm_test2, newdata2)
 
-
+##### 
 #### IRIS data
+##### 
 
-formula_iris <- formula(Sepal.Length ~ Species * Sepal.Width + Petal.Length)
+
+formula_iris <- formula(Sepal.Length ~ Sepal.Width + Petal.Length)
 
 lm_test_iris <- lm(formula_iris, iris)
 linmod_test_iris <- linmod(formula_iris, iris)
@@ -161,14 +163,17 @@ linmod_test_iris <- linmod(formula_iris, iris)
 summary(lm_test_iris)
 linmod_test_iris
 
+plot.linmod(linmod_test_iris)
+
 newdata_iris <- iris[sample(150, 30),c("Species","Sepal.Width","Petal.Length")]
-newdata_iris[,"Species"] <- factor(newdata_iris[,"Species"], levels=c("setosa", "versicolor", "virginica","fioih"))
+#newdata_iris[,"Species"] <- factor(newdata_iris[,"Species"], levels=c("setosa", "versicolor", "virginica","fioih"))
 
 sum(predict.linmod(linmod_test_iris, newdata_iris) == predict.lm(lm_test_iris, newdata_iris))
 
+#####
 #### mtcars
-
-formula_mtcars <- formula(mpg ~ disp + gear + wt)
+##### 
+formula_mtcars <- formula(mpg ~ hp + hp^2 + gear + am)
 
 lm_test_car <- lm(formula_mtcars, mtcars)
 linmod_test_car <- linmod(formula_mtcars, mtcars)
@@ -177,12 +182,14 @@ linmod_test_car
 
 plot.linmod(linmod_test_car)
 
-newdata_cars <- mtcars[sample(32,12),c("disp","gear","wt")]
+newdata_cars <- mtcars[sample(32,10),c("hp", "gear", "am")]
 
-sum(predict.linmod(linmod_test_car, newdata_cars) == predict.lm(lm_test_car, newdata_cars))
+predict.linmod(linmod_test_car, newdata_cars)
+predict.lm(lm_test_car, newdata_cars)
 
-
+#####
 #### Toothgrowth
+##### 
 formula_toothgrowth <- formula(dose ~ supp * len)
 
 lm_test_tooth <- lm(formula_toothgrowth, ToothGrowth)
@@ -196,6 +203,7 @@ plot.linmod(linmod_test_tooth)
 newdata_tooth <- ToothGrowth[sample(60, 15), c("supp","len")]
 newdata_tooth$supp <- as.character(newdata_tooth$supp)
 
-sum(predict.linmod(linmod_test_tooth, newdata_tooth)==predict.lm(lm_test_tooth, newdata_tooth))
+sum(predict.linmod(linmod_test_tooth, newdata_tooth)== predict.lm(lm_test_tooth, newdata_tooth))
 
 #####
+}
